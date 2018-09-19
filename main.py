@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-import urllib,urllib2
+import urllib
 import os,time,sys
-import cookielib
+import http.cookiejar
 import json
 import base64
 import re
 #发送邮件所需库
 import email
 import mimetypes
-from email.MIMEMultipart import MIMEMultipart
-from email.MIMEText import MIMEText
-from email.MIMEImage import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 import smtplib
 
 '''
@@ -33,9 +33,9 @@ fromAdd = 'xueqiutips@qq.com'
 
 
 #获取cookie
-cj = cookielib.CookieJar()
-opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-urllib2.install_opener(opener)
+cj = http.cookiejar.CookieJar()
+opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+urllib.request.install_opener(opener)
 #安装opener后，此后调用urlopen()都会使用安装过的opener(意思就是发的请求就是带cookie的了)
 
 headers = {"User-Agent" : "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.102 Safari/537.36"}   #伪装成浏览器
@@ -45,25 +45,25 @@ data = {
 	"remember_me" : "on",
 	"telephone" : "185XXX"
 	}
-post_data = urllib.urlencode(data)
-request = urllib2.Request(login_url,post_data,headers)
+post_data = urllib.parse.urlencode(data).encode(encoding='UTF8')
+request = urllib.request.Request(login_url,post_data,headers)
 try:
 	r = opener.open(request)
-except urllib2.HTTPError, e:
-	print u"该去输入验证码了啦"
-	print e.code			#一般是400	
+except urllib.request.HTTPError as e:
+	print(u"该去输入验证码了啦")
+	print(e.code)			#一般是400
 
 
 #获得组合的名字
 def GetName(group):
 	url = name_url + group
-	request = urllib2.Request(url,headers = headers)
+	request = urllib.request.Request(url,headers = headers)
 	try:
 		result  = opener.open(request)
-	except urllib2.HTTPError, e:
-		print u"该去输入验证码了啦"
-		print e.code
-	
+	except urllib.request.HTTPError:
+		print(u"该去输入验证码了啦")
+		print(e.code)
+
 	content = result.read()
 	name_patter = re.compile(r'<span class="name">(.*?)</span>')
 	name = name_patter.findall(content)
@@ -86,29 +86,29 @@ def Sendmessage(phonenumber,message):
 	values = {"mobile" : phonenumber ,
 		"message" : message }
 	data = urllib.urlencode(values)
-	request = urllib2.Request(url,data)
+	request = urllib.request.Request(url,data)
 	request.add_header("Authorization", authheader)
 
 	try:
-		result = urllib2.urlopen(request)
-	except IOError,e:
-		print "wrong api and key!"
+		result = urllib.request.urlopen(request)
+	except IOError as e:
+		print("wrong api and key!")
 		sys.exit(1)
 	results = json.loads(result.read())
-	print results
+	print(results)
 
 #发送邮件
 def SendEmail(authInfo, fromAdd, toAdd, subject, htmlText):
 
 	strFrom = fromAdd
 	strTo = toAdd
-	
+
 	server = authInfo.get('server')
 	user = authInfo.get('user')
 	passwd = authInfo.get('password')
 
 	if not (server and user and passwd) :
-		print 'incomplete login info, exit now'
+		print('incomplete login info, exit now')
 		return
 	# 设定root信息
 	msgRoot = MIMEMultipart('related')
@@ -139,12 +139,12 @@ def log(message,destination):
 #监控
 def Monitor(emailaddr,group):
 	url = pre_url + group + '&count=1'
-	request = urllib2.Request(url,headers = headers)
+	request = urllib.request.Request(url,headers = headers)
 	result  = opener.open(request)
 	try:
 		s = json.loads(result.read())
-	except Exception,e:
-		print 'NOT FOUND JSON FILE'
+	except Exception:
+		print('NOT FOUND JSON FILE')
 	now_id = s["list"][0]["id"]
 	status = s["list"][0]["status"]
 	global pre_id
@@ -152,11 +152,11 @@ def Monitor(emailaddr,group):
 	# if isfirsttime:
 	# 	pre_id = now_id
 	# 	isfirsttime = False
-	# 	#print pre_id
+	# 	#print(pre_id
 	# 	# stock_name = s["list"][0]["rebalancing_histories"][0]["stock_name"]
 	# 	# prev_weight =  s["list"][0]["rebalancing_histories"][0]["prev_weight"]
 	# 	# target_weight =  s["list"][0]["rebalancing_histories"][0]["target_weight"]
-	# 	# print 'stock_name:',stock_name,' prev_weight:',prev_weight,' target_weight',target_weight		
+	# 	# print('stock_name:',stock_name,' prev_weight:',prev_weight,' target_weight',target_weight		
 
 	if now_id > pre_id and status == "success": 
 		#当组合有调仓更新操作时,发送短信
@@ -171,7 +171,7 @@ def Monitor(emailaddr,group):
 			if target_weight == None : target_weight =0
 			message = '【雪球调仓提醒】您关注的组合' + name + group + ',于' + time + '调仓' + stock_name + ',仓位由' + str(prev_weight) + '%变为' + str(target_weight) + '%'
 			log(message,emailaddr)
-			print message
+			print(message)
 			htmlText = '<B>' + message + ' </B>'
 			# Sendmessage(phonenumber,message)
 			SendEmail(authInfo,fromAdd,emailaddr,message,htmlText)
@@ -184,4 +184,4 @@ if __name__ == '__main__' :
 		for key in data.keys():
 			Monitor(key,data[key])
 		num += 1
-		print num
+		print(num)
